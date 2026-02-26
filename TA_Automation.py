@@ -20,7 +20,7 @@ User_name = os.getenv("USERNAME")
 service_account_json = os.getenv("SERVICE_ACCOUNT_JSON")
 MB_URL = os.getenv("METABASE_URL").rstrip("/") + "/api/session"
 SAK = os.getenv("TA_SHEET_ACCESS_KEY")
-TA_SHEET_KEY = os.getenv("TA_SHEET_ACCESS_KEY")  # ✅ FIX #1: was missing, caused NameError
+TA_SHEET_KEY = os.getenv("TA_SHEET_ACCESS_KEY")
 
 # -------------------- QUERY ENV VARS --------------------
 TA_SESSIONS_QUERY = os.getenv("TA_SESSIONS_QUERY")   # card/6135
@@ -109,7 +109,7 @@ print("✅ All queries fetched successfully")
 # -------------------- PROCESS df1 (Sessions Feedback) --------------------
 df1 = pd.DataFrame(results["sessions"].json())
 
-# ✅ FIX #2: 'session_start_time' is actually 'start_timestamp' in the API response — select and rename it
+# 'start_timestamp' is the actual column name returned by the API — rename to 'session_start_time'
 df1 = df1[[
     'subjective_feedback', 'lu_batch_name', 'au_batch_name', 'au_start_date',
     'feedback_given', 'session_id', 'rating', 'description', 'module_name',
@@ -118,15 +118,18 @@ df1 = df1[[
 df1 = df1.rename(columns={
     'lu_batch_name': 'Batch',
     'module_name': 'Module',
-    'start_timestamp': 'session_start_time'  # ✅ rename to match rest of pipeline
+    'start_timestamp': 'session_start_time'
 })
 
 # -------------------- PROCESS df2 (Batch Info) --------------------
 df2 = pd.DataFrame(results["batch"].json())
 df2 = df2.rename(columns={'batch': 'Batch'})
 
-# ✅ FIX #3: Verify required merge columns exist in df2 before proceeding
-required_df2_cols = {'session_id', 'Batch', 'mentor_name', 'time_category', 'session_start_time'}
+# Drop session_start_time from df2 if it exists to avoid _x/_y conflict after merge
+df2 = df2.drop(columns=['session_start_time'], errors='ignore')
+
+# Verify required merge columns exist in df2
+required_df2_cols = {'session_id', 'Batch', 'mentor_name', 'time_category'}
 missing = required_df2_cols - set(df2.columns)
 if missing:
     raise ValueError(f"❌ df2 (batch query) is missing expected columns: {missing}")
@@ -143,7 +146,7 @@ df['month_diff_period'] = (
     df['au_start_date'].dt.to_period('M').astype(int)
 )
 
-# ✅ FIX #4: Safer rating deduplication — uses positional index within group, not global DataFrame index
+# Safer rating deduplication — uses positional index within group, not global DataFrame index
 df['rating'] = df.groupby('session_id')['rating'].transform(
     lambda x: x.mask(np.arange(len(x)) != 0, np.nan)
 )
@@ -162,7 +165,7 @@ df4 = pd.merge(df, df3, on=['year_month_date_hour', 'mentor_name', 'time_categor
 
 # -------------------- WRITE TO GOOGLE SHEETS --------------------
 print("📝 Connecting to Google Sheets...")
-sheet = gc.open_by_key(TA_SHEET_KEY)  # ✅ FIX #1: TA_SHEET_KEY is now properly defined
+sheet = gc.open_by_key(TA_SHEET_KEY)
 
 safe_clear_and_update(sheet.worksheet("TA_sessions"),     df)
 time.sleep(3)
