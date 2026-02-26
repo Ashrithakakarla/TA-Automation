@@ -1,0 +1,89 @@
+name: Run Scheduling + TA Automation
+
+on:
+  # Runs every 15 minutes UTC
+  schedule:
+    - cron: '*/15 * * * *'
+  # Manual trigger
+  workflow_dispatch:
+
+# ✅ FIX #6: Replaced broken lock-file approach with GitHub's native concurrency control.
+# This prevents two scheduled runs from overlapping. 'cancel-in-progress: false' means
+# a new trigger will wait for the current run to finish rather than cancel it.
+concurrency:
+  group: ta-automation-pipeline
+  cancel-in-progress: false
+
+jobs:
+  run-scheduling:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4  # ✅ FIX #7: Updated from deprecated v2 to v4
+
+      # Step 2: Setup Python
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        working-directory: ./
+
+      # Step 4: Run Scheduling.py
+      - name: Execute Scheduling.py
+        env:
+          ASHRITHA_SECRET_KEY: ${{ secrets.ASHRITHA_SECRET_KEY }}
+          SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+          USERNAME: ${{ secrets.USERNAME }}
+          METABASE_URL: ${{ secrets.METABASE_URL }}
+          TA_SESSIONS_QUERY: ${{ secrets.TA_SESSIONS_QUERY }}
+          TA_BATCH_QUERY: ${{ secrets.TA_BATCH_QUERY }}
+          TA_SLOTS_QUERY: ${{ secrets.TA_SLOTS_QUERY }}
+          TA_SHEET_ACCESS_KEY: ${{ secrets.TA_SHEET_ACCESS_KEY }}
+
+        run: |
+          echo "=============================="
+          echo "Workflow triggered at UTC: $(date -u)"
+          echo "Current branch: $GITHUB_REF"
+          echo "Repository path: $GITHUB_WORKSPACE"
+          echo "=============================="
+          echo "🚀 Starting Scheduling.py..."
+          echo "Using Metabase URL: ${METABASE_URL:0:25}****"
+          echo "Using USERNAME variable: ${USERNAME:+[SET]}"
+
+          python Scheduling.py
+
+          echo "✅ Scheduling.py executed successfully."
+        working-directory: ./
+
+      # Step 5: Run TA_Automation.py
+      - name: Execute TA_Automation.py
+        env:
+          ASHRITHA_SECRET_KEY: ${{ secrets.ASHRITHA_SECRET_KEY }}
+          SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+          USERNAME: ${{ secrets.USERNAME }}
+          METABASE_URL: ${{ secrets.METABASE_URL }}
+          TA_SESSIONS_QUERY: ${{ secrets.TA_SESSIONS_QUERY }}
+          TA_BATCH_QUERY: ${{ secrets.TA_BATCH_QUERY }}
+          TA_SLOTS_QUERY: ${{ secrets.TA_SLOTS_QUERY }}
+          TA_SHEET_ACCESS_KEY: ${{ secrets.TA_SHEET_ACCESS_KEY }}
+
+        run: |
+          echo "=============================="
+          echo "TA Automation triggered at UTC: $(date -u)"
+          echo "=============================="
+          echo "🚀 Starting TA_Automation.py..."
+          echo "Using Metabase URL: ${METABASE_URL:0:25}****"
+          echo "Using USERNAME variable: ${USERNAME:+[SET]}"
+
+          python TA_Automation.py
+
+          echo "✅ TA_Automation.py executed successfully."
+        working-directory: ./
