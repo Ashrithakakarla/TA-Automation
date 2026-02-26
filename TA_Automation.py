@@ -18,7 +18,7 @@ start_time = time.time()
 sec = os.getenv("ASHRITHA_SECRET_KEY")
 User_name = os.getenv("USERNAME")
 service_account_json = os.getenv("SERVICE_ACCOUNT_JSON")
-MB_URL = os.getenv("METABASE_URL")
+MB_URL = os.getenv("METABASE_URL").rstrip("/") + "/api/session"
 SAK = os.getenv("TA_SHEET_ACCESS_KEY")
 TA_SHEET_KEY = os.getenv("TA_SHEET_ACCESS_KEY")  # ✅ FIX #1: was missing, caused NameError
 
