@@ -50,6 +50,10 @@ res = requests.post(
     headers={"Content-Type": "application/json"},
     json={"username": User_name, "password": sec}
 )
+
+print("Status code:", res.status_code)
+print("Response text:", res.text)  # ← add this
+
 res.raise_for_status()
 token = res.json()['id']
 METABASE_HEADERS = {
