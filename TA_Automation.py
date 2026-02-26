@@ -51,9 +51,6 @@ res = requests.post(
     json={"username": User_name, "password": sec}
 )
 
-print("Status code:", res.status_code)
-print("Response text:", res.text)  # ← add this
-
 res.raise_for_status()
 token = res.json()['id']
 METABASE_HEADERS = {
@@ -111,15 +108,18 @@ print("✅ All queries fetched successfully")
 
 # -------------------- PROCESS df1 (Sessions Feedback) --------------------
 df1 = pd.DataFrame(results["sessions"].json())
-print("df1 columns:", df1.columns.tolist())
 
-# ✅ FIX #2: Added 'session_start_time' to column selection — it's needed for feature engineering
+# ✅ FIX #2: 'session_start_time' is actually 'start_timestamp' in the API response — select and rename it
 df1 = df1[[
     'subjective_feedback', 'lu_batch_name', 'au_batch_name', 'au_start_date',
     'feedback_given', 'session_id', 'rating', 'description', 'module_name',
-    'topic', 'cancel_reason', 'action_time', 'booked_time', 'session_start_time'
+    'topic', 'cancel_reason', 'action_time', 'booked_time', 'start_timestamp'
 ]]
-df1 = df1.rename(columns={'lu_batch_name': 'Batch', 'module_name': 'Module'})
+df1 = df1.rename(columns={
+    'lu_batch_name': 'Batch',
+    'module_name': 'Module',
+    'start_timestamp': 'session_start_time'  # ✅ rename to match rest of pipeline
+})
 
 # -------------------- PROCESS df2 (Batch Info) --------------------
 df2 = pd.DataFrame(results["batch"].json())
@@ -172,9 +172,6 @@ safe_clear_and_update(sheet.worksheet("TA-sessions-all"), df4)
 
 # -------------------- TIMESTAMP --------------------
 current_time = datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%d-%b-%Y %H:%M:%S")
-# Optional: uncomment if you have a dedicated timestamp cell
-# ws_pivot = sheet.worksheet("TA-sessions-all")
-# ws_pivot.update("B1", [[current_time]])
 print(f"✅ Timestamp: {current_time}")
 
 # -------------------- TIMER --------------------
