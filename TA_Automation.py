@@ -111,6 +111,7 @@ print("✅ All queries fetched successfully")
 
 # -------------------- PROCESS df1 (Sessions Feedback) --------------------
 df1 = pd.DataFrame(results["sessions"].json())
+print("df1 columns:", df1.columns.tolist())
 
 # ✅ FIX #2: Added 'session_start_time' to column selection — it's needed for feature engineering
 df1 = df1[[
