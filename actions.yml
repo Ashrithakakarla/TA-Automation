@@ -1,4 +1,4 @@
-name: Run Scheduling + TA Automation
+name: Run TA Automation
 
 on:
   # Runs every 15 minutes UTC
@@ -15,13 +15,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  run-scheduling:
+  run-ta-automation:
     runs-on: ubuntu-latest
 
     steps:
       # Step 1: Checkout repo
       - name: Checkout repository
-        uses: actions/checkout@v4  # ✅ FIX #7: Updated from deprecated v2 to v4
+        uses: actions/checkout@v4
 
       # Step 2: Setup Python
       - name: Setup Python 3.9
@@ -36,8 +36,8 @@ jobs:
           pip install -r requirements.txt
         working-directory: ./
 
-      # Step 4: Run Scheduling.py
-      - name: Execute Scheduling.py
+      # Step 4: Run TA_Automation.py
+      - name: Execute TA_Automation.py
         env:
           ASHRITHA_SECRET_KEY: ${{ secrets.ASHRITHA_SECRET_KEY }}
           SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
@@ -53,31 +53,6 @@ jobs:
           echo "Workflow triggered at UTC: $(date -u)"
           echo "Current branch: $GITHUB_REF"
           echo "Repository path: $GITHUB_WORKSPACE"
-          echo "=============================="
-          echo "🚀 Starting Scheduling.py..."
-          echo "Using Metabase URL: ${METABASE_URL:0:25}****"
-          echo "Using USERNAME variable: ${USERNAME:+[SET]}"
-
-          python Scheduling.py
-
-          echo "✅ Scheduling.py executed successfully."
-        working-directory: ./
-
-      # Step 5: Run TA_Automation.py
-      - name: Execute TA_Automation.py
-        env:
-          ASHRITHA_SECRET_KEY: ${{ secrets.ASHRITHA_SECRET_KEY }}
-          SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
-          USERNAME: ${{ secrets.USERNAME }}
-          METABASE_URL: ${{ secrets.METABASE_URL }}
-          TA_SESSIONS_QUERY: ${{ secrets.TA_SESSIONS_QUERY }}
-          TA_BATCH_QUERY: ${{ secrets.TA_BATCH_QUERY }}
-          TA_SLOTS_QUERY: ${{ secrets.TA_SLOTS_QUERY }}
-          TA_SHEET_ACCESS_KEY: ${{ secrets.TA_SHEET_ACCESS_KEY }}
-
-        run: |
-          echo "=============================="
-          echo "TA Automation triggered at UTC: $(date -u)"
           echo "=============================="
           echo "🚀 Starting TA_Automation.py..."
           echo "Using Metabase URL: ${METABASE_URL:0:25}****"
