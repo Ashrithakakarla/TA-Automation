@@ -112,9 +112,7 @@ df1 = pd.DataFrame(results["sessions"].json())
 df1 = df1[[
     'subjective_feedback', 'lu_batch_name', 'au_batch_name', 'au_start_date',
     'feedback_given', 'session_id', 'rating', 'description', 'module_name',
-    'topic', 'cancel_reason', 'action_time', 'booked_time', 'start_timestamp', 'doubt_type',
-    'doubt_description','question_link','student_rating','student_behaviour','doubt_part_cirricullum',
-    'student_intent','additional_feedback','no_of_doubts'
+    'topic', 'cancel_reason', 'action_time', 'booked_time', 'start_timestamp'
 ]]
 df1 = df1.rename(columns={
     'lu_batch_name': 'Batch',
