@@ -18,20 +18,14 @@ start_time = time.time()
 IST = ZoneInfo("Asia/Kolkata")
 
 def to_ist(series):
-    """Convert datetime series to IST. Handles tz-aware (any tz) and tz-naive (UTC or IST)."""
+    """Convert datetime series to IST.
+    - tz-aware (e.g. +05:30 or UTC): convert directly to IST
+    - tz-naive: data is already in IST, just localize
+    """
     if series.dt.tz is not None:
-        # Already tz-aware — convert directly to IST
         return series.dt.tz_convert(IST)
     else:
-        # Naive — check if values look like UTC (IST = UTC + 5:30)
-        # UTC business hours (3–13) → IST (8:30–18:30), median hour < 18 implies UTC
-        median_hour = series.dropna().dt.hour.median()
-        if median_hour < 18:
-            # Likely UTC
-            return series.dt.tz_localize("UTC").dt.tz_convert(IST)
-        else:
-            # Likely already IST
-            return series.dt.tz_localize(IST)
+        return series.dt.tz_localize(IST)
 
 def strip_tz(df):
     """Remove timezone info from all datetime columns for Google Sheets compatibility."""
@@ -144,9 +138,10 @@ df1 = df1.rename(columns={
     'start_timestamp': 'session_start_time'
 })
 
-# Parse and convert session_start_time to IST (handles any timezone or naive UTC/IST)
-df1['session_start_time'] = pd.to_datetime(df1['session_start_time'], errors='coerce')
-df1['session_start_time'] = to_ist(df1['session_start_time'])
+# Parse and convert all datetime columns to IST
+df1['session_start_time'] = to_ist(pd.to_datetime(df1['session_start_time'], errors='coerce'))
+df1['action_time']        = to_ist(pd.to_datetime(df1['action_time'],        errors='coerce'))
+df1['booked_time']        = to_ist(pd.to_datetime(df1['booked_time'],        errors='coerce'))
 
 # -------------------- PROCESS df2 (Batch Info) --------------------
 df2 = pd.DataFrame(results["batch"].json())
@@ -165,8 +160,7 @@ if missing:
 df = pd.merge(df1, df2, on=['session_id', 'Batch'], how='inner')
 
 # -------------------- FEATURE ENGINEERING --------------------
-df['session_start_time'] = pd.to_datetime(df['session_start_time'], errors='coerce', utc=False)
-df['au_start_date']      = pd.to_datetime(df['au_start_date'], errors='coerce')
+df['au_start_date'] = pd.to_datetime(df['au_start_date'], errors='coerce')
 
 df['month_diff_period'] = (
     df['session_start_time'].dt.to_period('M').astype(int) -
@@ -185,9 +179,8 @@ df = df.drop_duplicates()
 # -------------------- PROCESS df3 (TA Slots) --------------------
 df3 = pd.DataFrame(results["slots"].json())
 
-# Parse and convert date to IST (handles any timezone or naive UTC/IST)
-df3['date'] = pd.to_datetime(df3['date'])
-df3['date'] = to_ist(df3['date'])
+# Parse and convert date to IST
+df3['date'] = to_ist(pd.to_datetime(df3['date']))
 
 # Derive year_month_date_hour from IST date
 df3['year_month_date_hour'] = df3['date'].dt.strftime('%Y-%m-%d-%H')
