@@ -14,6 +14,21 @@ from concurrent.futures import ThreadPoolExecutor
 # -------------------- START TIMER --------------------
 start_time = time.time()
 
+# -------------------- TIMEZONE --------------------
+IST = ZoneInfo("Asia/Kolkata")
+
+def to_ist(series):
+    """Convert any timezone (or naive/UTC) datetime series to IST."""
+    if series.dt.tz is None:
+        series = series.dt.tz_localize("UTC")
+    return series.dt.tz_convert(IST)
+
+def strip_tz(df):
+    """Remove timezone info from all datetime columns for Google Sheets compatibility."""
+    for col in df.select_dtypes(include='datetimetz').columns:
+        df[col] = df[col].dt.tz_localize(None)
+    return df
+
 # -------------------- ENV & AUTH --------------------
 sec = os.getenv("ASHRITHA_SECRET_KEY")
 User_name = os.getenv("USERNAME")
@@ -108,7 +123,6 @@ print("✅ All queries fetched successfully")
 
 # -------------------- PROCESS df1 (Sessions Feedback) --------------------
 df1 = pd.DataFrame(results["sessions"].json())
-# 'start_timestamp' is the actual column name returned by the API — rename to 'session_start_time'
 df1 = df1[[
     'subjective_feedback', 'lu_batch_name', 'au_batch_name', 'au_start_date',
     'feedback_given', 'session_id', 'rating', 'description', 'module_name',
@@ -119,6 +133,10 @@ df1 = df1.rename(columns={
     'module_name': 'Module',
     'start_timestamp': 'session_start_time'
 })
+
+# Parse and convert session_start_time to IST (handles any timezone or naive)
+df1['session_start_time'] = pd.to_datetime(df1['session_start_time'], errors='coerce', utc=False)
+df1['session_start_time'] = to_ist(df1['session_start_time'])
 
 # -------------------- PROCESS df2 (Batch Info) --------------------
 df2 = pd.DataFrame(results["batch"].json())
@@ -137,7 +155,7 @@ if missing:
 df = pd.merge(df1, df2, on=['session_id', 'Batch'], how='inner')
 
 # -------------------- FEATURE ENGINEERING --------------------
-df['session_start_time'] = pd.to_datetime(df['session_start_time'], errors='coerce')
+df['session_start_time'] = pd.to_datetime(df['session_start_time'], errors='coerce', utc=False)
 df['au_start_date']      = pd.to_datetime(df['au_start_date'], errors='coerce')
 
 df['month_diff_period'] = (
@@ -150,17 +168,29 @@ df['rating'] = df.groupby('session_id')['rating'].transform(
     lambda x: x.mask(np.arange(len(x)) != 0, np.nan)
 )
 
+# Derive year_month_date_hour from IST session_start_time
 df['year_month_date_hour'] = df['session_start_time'].dt.strftime('%Y-%m-%d-%H')
 df = df.drop_duplicates()
 
 # -------------------- PROCESS df3 (TA Slots) --------------------
 df3 = pd.DataFrame(results["slots"].json())
-df3['date'] = pd.to_datetime(df3['date'])
+
+# Parse and convert date to IST (handles any timezone or naive)
+df3['date'] = pd.to_datetime(df3['date'], utc=False)
+df3['date'] = to_ist(df3['date'])
+
+# Derive year_month_date_hour from IST date
 df3['year_month_date_hour'] = df3['date'].dt.strftime('%Y-%m-%d-%H')
 df3 = df3.rename(columns={'ta': 'mentor_name'})
 
 # -------------------- MERGE df + df3 → df4 --------------------
 df4 = pd.merge(df, df3, on=['year_month_date_hour', 'mentor_name', 'time_category'], how='outer')
+
+# -------------------- STRIP TIMEZONE BEFORE WRITING TO SHEETS --------------------
+# gspread does not handle tz-aware datetimes correctly
+df  = strip_tz(df.copy())
+df3 = strip_tz(df3.copy())
+df4 = strip_tz(df4.copy())
 
 # -------------------- WRITE TO GOOGLE SHEETS --------------------
 print("📝 Connecting to Google Sheets...")
