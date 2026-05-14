@@ -18,10 +18,20 @@ start_time = time.time()
 IST = ZoneInfo("Asia/Kolkata")
 
 def to_ist(series):
-    """Convert any timezone (or naive/UTC) datetime series to IST."""
-    if series.dt.tz is None:
-        series = series.dt.tz_localize("UTC")
-    return series.dt.tz_convert(IST)
+    """Convert datetime series to IST. Handles tz-aware (any tz) and tz-naive (UTC or IST)."""
+    if series.dt.tz is not None:
+        # Already tz-aware — convert directly to IST
+        return series.dt.tz_convert(IST)
+    else:
+        # Naive — check if values look like UTC (IST = UTC + 5:30)
+        # UTC business hours (3–13) → IST (8:30–18:30), median hour < 18 implies UTC
+        median_hour = series.dropna().dt.hour.median()
+        if median_hour < 18:
+            # Likely UTC
+            return series.dt.tz_localize("UTC").dt.tz_convert(IST)
+        else:
+            # Likely already IST
+            return series.dt.tz_localize(IST)
 
 def strip_tz(df):
     """Remove timezone info from all datetime columns for Google Sheets compatibility."""
@@ -134,8 +144,8 @@ df1 = df1.rename(columns={
     'start_timestamp': 'session_start_time'
 })
 
-# Parse and convert session_start_time to IST (handles any timezone or naive)
-df1['session_start_time'] = pd.to_datetime(df1['session_start_time'], errors='coerce', utc=False)
+# Parse and convert session_start_time to IST (handles any timezone or naive UTC/IST)
+df1['session_start_time'] = pd.to_datetime(df1['session_start_time'], errors='coerce')
 df1['session_start_time'] = to_ist(df1['session_start_time'])
 
 # -------------------- PROCESS df2 (Batch Info) --------------------
@@ -175,8 +185,8 @@ df = df.drop_duplicates()
 # -------------------- PROCESS df3 (TA Slots) --------------------
 df3 = pd.DataFrame(results["slots"].json())
 
-# Parse and convert date to IST (handles any timezone or naive)
-df3['date'] = pd.to_datetime(df3['date'], utc=False)
+# Parse and convert date to IST (handles any timezone or naive UTC/IST)
+df3['date'] = pd.to_datetime(df3['date'])
 df3['date'] = to_ist(df3['date'])
 
 # Derive year_month_date_hour from IST date
