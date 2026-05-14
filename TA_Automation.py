@@ -28,9 +28,11 @@ def to_ist(series):
         return series.dt.tz_localize(IST)
 
 def strip_tz(df):
-    """Remove timezone info from all datetime columns for Google Sheets compatibility."""
+    """Convert tz-aware datetime columns to plain IST strings for Sheets.
+    This prevents gspread from reinterpreting timezone info during write.
+    """
     for col in df.select_dtypes(include='datetimetz').columns:
-        df[col] = df[col].dt.tz_localize(None)
+        df[col] = df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
     return df
 
 # -------------------- ENV & AUTH --------------------
@@ -190,7 +192,8 @@ df3 = df3.rename(columns={'ta': 'mentor_name'})
 df4 = pd.merge(df, df3, on=['year_month_date_hour', 'mentor_name', 'time_category'], how='outer')
 
 # -------------------- STRIP TIMEZONE BEFORE WRITING TO SHEETS --------------------
-# gspread does not handle tz-aware datetimes correctly
+# Convert tz-aware datetime columns to plain IST strings
+# This prevents gspread from reinterpreting timezone info during write
 df  = strip_tz(df.copy())
 df3 = strip_tz(df3.copy())
 df4 = strip_tz(df4.copy())
